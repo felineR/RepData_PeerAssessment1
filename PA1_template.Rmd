@@ -1,25 +1,95 @@
 ---
-title: "Reproducible Research: Peer Assessment 1"
-output: 
-  html_document:
-    keep_md: true
+title: "Course Project 1 on Reproducible Research"
+output: html_document
 ---
 
+This R Markdown document describes the steps taken to complete course project 1 of the Reproducible Research course.
 
-## Loading and preprocessing the data
+The tasks include:  
+1. Code for reading in the dataset and/or processing the data  
+2. Histogram of the total number of steps taken each day  
+3. Mean and median number of steps taken each day  
+4. Time series plot of the average number of steps taken  
+5. The 5-minute interval that, on average, contains the maximum number of steps  
+6. Code to describe and show a strategy for imputing missing data  
+7. Histogram of the total number of steps taken each day after missing values are imputed  
+8. Panel plot comparing the average number of steps taken per 5-minute interval across weekdays and weekends  
+9. All of the R code needed to reproduce the results (numbers, plots, etc.) in the report  
+
+```{r, result = "hide"}
+library(dplyr)
+```
+
+**Task 1: Code for reading in the dataset and/or processing the data**
+
+```{r}
+rawdata <- read.csv("activity.csv")
+rawdata$date <- as.Date(rawdata$date)
+```
+
+**Task 2: Histogram of the total number of steps taken each day**
+
+```{r}
+summarized_data <- as.data.frame(summarize(group_by(rawdata, date), steps = sum(steps, na.rm = TRUE)))
+barplot(summarized_data$steps, main = "Total Number of Steps Taken per Day")
+```
 
 
+**Task 3: Mean and median number of steps taken each day**
+```{r}
+mean_data <- as.data.frame(summarize(group_by(rawdata, date), mean_of_steps = mean(steps, na.rm = TRUE)))
+head(mean_data, n = 5)
+median_data <- as.data.frame(summarize(group_by(rawdata, date), median_of_steps = median(steps)))
+head(median_data, n = 5)
+```
 
-## What is mean total number of steps taken per day?
+**Task 4: Time series plot of the average number of steps taken**
+```{r}
+plot(mean_data$date, mean_data$mean_of_steps, type = "l", 
+main = "Average Number of Steps Taken", xlab = "Date", ylab = "Average Number of Steps")
+```
 
+**Task 5: The 5-minute interval that, on average, contains the maximum number of steps**
+```{r}
+interval_data <- as.data.frame(summarize(group_by(rawdata, interval), steps = mean(steps, na.rm = TRUE)))
+subset(interval_data, interval_data$steps == max(interval_data$steps))
+```
 
+**Task 6: Code to describe and show a strategy for imputing missing data**  
+Exploring the missing values
+```{r}
+na_data <- subset(rawdata, is.na(rawdata$steps))
+unique(na_data$date)
+```
 
-## What is the average daily activity pattern?
+The missing data is concentrated on eight days.  
+To prevent a distortion of the data the average of the corresponding interval is assigned to all missing values.
+```{r}
+na_replace <- merge(interval_data, na_data[,2:3], by.x = "interval", by.y = "interval")
+impute_data <- rbind(subset(rawdata, !is.na(rawdata$steps)), na_replace)
+impute_data <- impute_data[order(impute_data$date, impute_data$interval),]
+head(impute_data, n = 5)
+```
 
+**Task 7: Histogram of the total number of steps taken each day after missing values are imputed**
+```{r}
+summarized_impute_data <- as.data.frame(summarize(group_by(impute_data, date), steps = sum(steps, na.rm = TRUE)))
+barplot(summarized_impute_data$steps, main = "Total Number of Steps Taken per Day After Imputing Missing Values")
+```
 
-
-## Imputing missing values
-
-
-
-## Are there differences in activity patterns between weekdays and weekends?
+**Task 8: Panel plot comparing the average number of steps taken per 5-minute interval across weekdays and weekends**
+```{r}
+impute_data$weekday <- weekdays(impute_data$date)
+for(i in 1:nrow(impute_data)) {
+  if(impute_data$weekday[i] %in% c("Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag"))
+    impute_data$weekday2[i] <- "Weekday"
+  else impute_data$weekday2[i] <- "Weekend"
+}
+par(mfrow = c(1,2))
+weekday_data <- subset(impute_data, weekday2 == "Weekday")
+plot(weekday_data$interval, weekday_data$steps, type = 'l', col = 'blue',
+     main = "Number of Steps Taken (Weekdays)", xlab = "Interval", ylab = "Number of Steps")
+weekend_data <- subset(impute_data, weekday2 == "Weekend")
+plot(weekend_data$interval, weekend_data$steps, type = 'l', col = 'green',
+     main = "Number of Steps Taken (Weekend)", xlab = "Interval", ylab = "Number of Steps")
+```
